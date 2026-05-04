@@ -15,17 +15,16 @@ from datetime import datetime, timedelta
 from flask import Flask, send_from_directory, jsonify, request, redirect, session
 import threading
 
-# ─────────────────────────────────────────
-#  EMOJI MAPPING
-# ─────────────────────────────────────────
 EMOJI_MAPPING = {
-    'nightbox':       'nightbox',
-    'minecraft':      'minecraft',
-    'cohete_nightbox': 'cohete_nightbox',
+    'chowbox':              'chowbox',
+    'chow_logo':            'chowbox_logo',
+    'chowbox_confirmado':   'chowbox_confirmado',
+    'chowbox_mono':         'chowbox_mono',
+    'minecraft':            'minecraft',
+    'cohete_chowbox':       'cohete_chowbox',
 }
 
 def get_emoji(guild, name):
-    """Busca un emoji por nombre en el servidor y lo devuelve como string."""
     if not name or not guild:
         return ''
     for emoji in guild.emojis:
@@ -33,9 +32,6 @@ def get_emoji(guild, name):
             return str(emoji)
     return ''
 
-# ─────────────────────────────────────────
-#  SERVIDOR WEB (Flask)
-# ─────────────────────────────────────────
 app_web = Flask(__name__, static_folder='web')
 app_web.secret_key = os.environ.get("FLASK_SECRET", secrets.token_hex(32))
 
@@ -45,36 +41,22 @@ WEB_URL               = os.environ.get("WEB_URL", "http://localhost:5000").rstri
 print(f"DEBUG CLIENT_ID={DISCORD_CLIENT_ID!r}")
 print(f"DEBUG CLIENT_SECRET={DISCORD_CLIENT_SECRET[:4] if DISCORD_CLIENT_SECRET else 'VACIO'}...")
 
-DISCORD_AUTH_URL = "https://discord.com/api/oauth2/authorize"
+DISCORD_AUTH_URL  = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_USER_URL  = "https://discord.com/api/users/@me"
 
-# URL de imagen de estado pendiente
 IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/1498136147115638944/content.png?ex=69f00f83&is=69eebe03&hm=acc054030e4c0a24546045d4b8308de96abd1ffebedf7589b722518c13062619&=&format=webp&quality=lossless&width=661&height=562"
 
 def get_redirect_uri():
     return f"{WEB_URL}/callback"
 
-# ─────────────────────────────────────────
-#  ESTADO GLOBAL
-# ─────────────────────────────────────────
-# ID del rol autorizado para aceptar/rechazar postulaciones y usar comandos
 ROL_STAFF_AUTORIZADO_ID = 1498403018993959154
-
-# ID del servidor principal de NightBox
 GUILD_ID = 1476355922883510293
 
 postulaciones_web_pendientes = []
-postulaciones_enviadas = set()   # discord_ids que ya enviaron formulario web
+postulaciones_enviadas = set()
 estado_postulaciones = {"abierto": True}
-
-# Guarda message_id del DM enviado al postulante para poder editarlo después
-# { discord_id (str) : dm_message_id (int) }
 dm_mensajes_postulacion = {}
-
-# ──────────────────────────────────────────
-#  RUTAS WEB
-# ──────────────────────────────────────────
 
 @app_web.route('/')
 def index():
@@ -99,7 +81,6 @@ def callback():
     code = request.args.get("code")
     if not code:
         return redirect("/?error=no_code")
-
     try:
         data = urllib.parse.urlencode({
             "client_id":     DISCORD_CLIENT_ID,
@@ -108,10 +89,9 @@ def callback():
             "code":          code,
             "redirect_uri":  get_redirect_uri(),
         }).encode()
-
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "DiscordBot (NightBox, 1.0)"
+            "User-Agent": "DiscordBot (ChowBox, 1.0)"
         }
         if _requests:
             r = _requests.post(DISCORD_TOKEN_URL, data=data, headers=headers)
@@ -120,20 +100,17 @@ def callback():
             req = urllib.request.Request(DISCORD_TOKEN_URL, data=data, headers=headers, method="POST")
             with urllib.request.urlopen(req) as resp:
                 token_data = json.loads(resp.read())
-
         access_token = token_data.get("access_token")
         if not access_token:
             print(f"No access token, response: {token_data}")
             return redirect("/?error=no_token")
-
         if _requests:
-            r2 = _requests.get(DISCORD_USER_URL, headers={"Authorization": f"Bearer {access_token}", "User-Agent": "DiscordBot (NightBox, 1.0)"})
+            r2 = _requests.get(DISCORD_USER_URL, headers={"Authorization": f"Bearer {access_token}", "User-Agent": "DiscordBot (ChowBox, 1.0)"})
             user_data = r2.json()
         else:
             req2 = urllib.request.Request(DISCORD_USER_URL, headers={"Authorization": f"Bearer {access_token}"})
             with urllib.request.urlopen(req2) as resp2:
                 user_data = json.loads(resp2.read())
-
         session["discord_user"] = {
             "id":          user_data.get("id"),
             "username":    user_data.get("username"),
@@ -141,7 +118,6 @@ def callback():
             "avatar":      user_data.get("avatar"),
         }
         return redirect("/")
-
     except Exception as e:
         import traceback
         print(f"OAuth error: {e}")
@@ -162,7 +138,6 @@ def me():
 
 @app_web.route('/ya_postulo')
 def ya_postulo():
-    """Devuelve si el usuario ya envió una postulación web."""
     user = session.get("discord_user")
     if not user:
         return jsonify({"enviado": False})
@@ -174,11 +149,8 @@ def recibir_postulacion():
     user = session.get("discord_user")
     if not user:
         return jsonify({"ok": False, "error": "No autenticado"}), 401
-
-    # ── Anti-duplicado ──
     if user.get("id") in postulaciones_enviadas:
         return jsonify({"ok": False, "error": "ya_postulo"}), 409
-
     data = None
     try:
         data = request.get_json(force=True, silent=True)
@@ -191,12 +163,9 @@ def recibir_postulacion():
             pass
     if not data:
         return jsonify({"ok": False, "error": "Sin datos"}), 400
-
     data["discord"]      = user.get("username")
     data["discord_id"]   = user.get("id")
     data["discord_name"] = user.get("global_name")
-
-    # Marcar como enviado ANTES de procesar para evitar doble clic
     postulaciones_enviadas.add(user.get("id"))
     postulaciones_web_pendientes.append(data)
     return jsonify({"ok": True})
@@ -205,9 +174,6 @@ def iniciar_servidor_web():
     port = int(os.environ.get('PORT', 5000))
     app_web.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
-# ─────────────────────────────────────────
-#  BOT DE DISCORD
-# ─────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -236,11 +202,7 @@ postulaciones_activas = {}
 def guardar_config():
     pass
 
-# ─────────────────────────────────────────
-#  GENERADOR DE HTML DE POSTULACIÓN
-# ─────────────────────────────────────────
 def generar_html_postulacion(discord_tag, discord_name, discord_id, preguntas, respuestas_dict):
-    """Genera un archivo HTML con todas las preguntas y respuestas del postulante."""
     filas = ""
     for i, pregunta in enumerate(preguntas):
         respuesta = respuestas_dict.get(i, respuestas_dict.get(f"p{i+1}", "Sin respuesta"))
@@ -261,101 +223,36 @@ def generar_html_postulacion(discord_tag, discord_name, discord_id, preguntas, r
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Postulación de {discord_name} — NightBox Staff</title>
+<title>Postulacion de {discord_name} — ChowBox Staff</title>
 <style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #0d0d0d;
-    color: #e0e0e0;
-    min-height: 100vh;
-  }}
-  header {{
-    background: linear-gradient(135deg, #c0392b 0%, #8e0000 100%);
-    padding: 28px 32px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  }}
-  header .logo {{ font-size: 2.2rem; }}
-  header .info h1 {{ font-size: 1.5rem; font-weight: 700; color: #fff; }}
-  header .info p {{ font-size: 0.9rem; color: rgba(255,255,255,0.75); margin-top: 4px; }}
-  .badge {{
-    display: inline-block;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 3px 12px;
-    font-size: 0.78rem;
-    color: #fff;
-    margin-top: 6px;
-  }}
-  .meta {{
-    background: #1a1a1a;
-    border-bottom: 1px solid #2a2a2a;
-    padding: 16px 32px;
-    display: flex;
-    gap: 32px;
-    font-size: 0.88rem;
-    color: #aaa;
-  }}
-  .meta span b {{ color: #e0e0e0; }}
-  .container {{ max-width: 860px; margin: 32px auto; padding: 0 20px 48px; }}
-  .titulo-seccion {{
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #c0392b;
-    font-weight: 700;
-    margin-bottom: 16px;
-    padding-left: 4px;
-  }}
-  .pregunta {{
-    display: flex;
-    gap: 16px;
-    padding: 18px 20px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    border-left: 3px solid #c0392b;
-    transition: transform 0.15s;
-  }}
-  .pregunta:hover {{ transform: translateX(3px); }}
-  .par {{ background: #1c1c1c; }}
-  .impar {{ background: #181818; }}
-  .num {{
-    min-width: 38px;
-    height: 38px;
-    background: #c0392b;
-    color: #fff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.78rem;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }}
-  .contenido {{ flex: 1; }}
-  .texto-pregunta {{ font-size: 0.85rem; color: #aaa; margin-bottom: 6px; font-weight: 500; }}
-  .texto-respuesta {{ font-size: 1rem; color: #e8e8e8; line-height: 1.5; }}
-  footer {{
-    text-align: center;
-    padding: 24px;
-    font-size: 0.78rem;
-    color: #444;
-    border-top: 1px solid #1e1e1e;
-  }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; background:#0d0d0d; color:#e0e0e0; min-height:100vh; }}
+  header {{ background:linear-gradient(135deg,#7d3c98 0%,#5b2c6f 100%); padding:28px 32px; display:flex; align-items:center; gap:20px; box-shadow:0 4px 20px rgba(0,0,0,0.5); }}
+  header .logo {{ font-size:2.2rem; }}
+  header .info h1 {{ font-size:1.5rem; font-weight:700; color:#fff; }}
+  header .info p {{ font-size:0.9rem; color:rgba(255,255,255,0.75); margin-top:4px; }}
+  .badge {{ display:inline-block; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); border-radius:20px; padding:3px 12px; font-size:0.78rem; color:#fff; margin-top:6px; }}
+  .meta {{ background:#1a1a1a; border-bottom:1px solid #2a2a2a; padding:16px 32px; display:flex; gap:32px; font-size:0.88rem; color:#aaa; }}
+  .meta span b {{ color:#e0e0e0; }}
+  .container {{ max-width:860px; margin:32px auto; padding:0 20px 48px; }}
+  .titulo-seccion {{ font-size:0.75rem; text-transform:uppercase; letter-spacing:2px; color:#9b59b6; font-weight:700; margin-bottom:16px; padding-left:4px; }}
+  .pregunta {{ display:flex; gap:16px; padding:18px 20px; border-radius:10px; margin-bottom:10px; border-left:3px solid #9b59b6; transition:transform 0.15s; }}
+  .pregunta:hover {{ transform:translateX(3px); }}
+  .par {{ background:#1c1c1c; }}
+  .impar {{ background:#181818; }}
+  .num {{ min-width:38px; height:38px; background:#9b59b6; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; flex-shrink:0; margin-top:2px; }}
+  .contenido {{ flex:1; }}
+  .texto-pregunta {{ font-size:0.85rem; color:#aaa; margin-bottom:6px; font-weight:500; }}
+  .texto-respuesta {{ font-size:1rem; color:#e8e8e8; line-height:1.5; }}
+  footer {{ text-align:center; padding:24px; font-size:0.78rem; color:#444; border-top:1px solid #1e1e1e; }}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">🌙</div>
   <div class="info">
-    <h1>Postulación de {discord_name}</h1>
-    <p>Staff Team — NightBox</p>
+    <h1>Postulacion de {discord_name}</h1>
+    <p>Staff Team — ChowBox</p>
     <span class="badge">📋 {len(preguntas)} preguntas respondidas</span>
   </div>
 </header>
@@ -367,34 +264,30 @@ def generar_html_postulacion(discord_tag, discord_name, discord_id, preguntas, r
   <div class="titulo-seccion">Respuestas del postulante</div>
   {filas}
 </div>
-<footer>NightBox Staff · Sistema de Postulaciones · Documento generado automáticamente</footer>
+<footer>ChowBox Staff · Sistema de Postulaciones · Documento generado automaticamente</footer>
 </body>
 </html>"""
     return html
 
 
-# ─────────────────────────────────────────
-#  TAREA: procesar postulaciones web
-# ─────────────────────────────────────────
 async def procesar_postulaciones_web():
     await bot.wait_until_ready()
     while not bot.is_closed():
         if postulaciones_web_pendientes:
             data = postulaciones_web_pendientes.pop(0)
             try:
-                print(f"📬 Procesando postulación de {data.get('discord', '?')}")
+                print(f"Procesando postulacion de {data.get('discord', '?')}")
                 await enviar_al_canal_revision_web(data)
-                print(f"✅ Postulación enviada al canal correctamente")
             except Exception as e:
                 import traceback
-                print(f"❌ Error procesando postulación web: {e}")
+                print(f"Error procesando postulacion web: {e}")
                 print(traceback.format_exc())
         await asyncio.sleep(3)
 
 async def enviar_al_canal_revision_web(data):
     guild = bot.get_guild(GUILD_ID)
     if not guild:
-        print("❌ No se encontró el servidor con ID", GUILD_ID)
+        print("No se encontro el servidor con ID", GUILD_ID)
         return
 
     canal_revision = None
@@ -403,70 +296,53 @@ async def enviar_al_canal_revision_web(data):
         if not canal_revision:
             try:
                 canal_revision = await bot.fetch_channel(config["canal_revision_id"])
-                print(f"✅ Canal encontrado via fetch: {canal_revision.id}")
             except Exception as e:
-                print(f"❌ fetch_channel falló: {e}")
-        else:
-            print(f"✅ Canal encontrado en caché: {canal_revision.id}")
+                print(f"fetch_channel fallo: {e}")
     if not canal_revision:
         canal_revision = discord.utils.get(guild.text_channels, name="postulaciones-staff")
-        print(f"🔍 Buscando canal por nombre: {'encontrado' if canal_revision else 'NO encontrado'}")
     if not canal_revision:
         try:
             canal_revision = await guild.create_text_channel(name="postulaciones-staff")
             config["canal_revision_id"] = canal_revision.id
-            print(f"✅ Canal creado: {canal_revision.id}")
         except Exception as e:
-            print(f"❌ No se pudo crear el canal: {e}")
+            print(f"No se pudo crear el canal: {e}")
             return
 
     discord_tag  = data.get('discord', 'No especificado')
     discord_name = data.get('discord_name', discord_tag)
     discord_id   = data.get('discord_id', '')
 
-    # Emojis
-    nightbox_e = get_emoji(guild, EMOJI_MAPPING['nightbox']) or '🌙'
-    arrow_e    = get_emoji(guild, '1383arrowright') or '➡️'
-
+    chowbox_e = get_emoji(guild, EMOJI_MAPPING['chowbox']) or '🌙'
+    arrow_e   = get_emoji(guild, '1383arrowright') or '➡️'
     preguntas = preguntas_data.get("preguntas", [])
 
-    # ── Embed principal con info del postulante ──
     embed_main = discord.Embed(
         description=(
-            f"{nightbox_e} **Postulacion De {discord_name}**\n"
+            f"{chowbox_e} **Postulacion De {discord_name}**\n"
             f"{arrow_e} **Discord:** {discord_tag}\n"
             f"{arrow_e} **ID:** `{discord_id}`"
         ),
-        color=discord.Color.red(),
+        color=discord.Color.purple(),
         timestamp=datetime.now()
     )
-    embed_main.set_footer(text="Enviado desde la página web · Verificado con Discord OAuth2")
+    embed_main.set_footer(text="Enviado desde la pagina web · Verificado con Discord OAuth2")
 
-    # ── Embeds de preguntas (máx 12 preguntas por embed para no saturar) ──
     CHUNK = 12
     embeds_preguntas = []
     for chunk_start in range(0, len(preguntas), CHUNK):
         chunk = preguntas[chunk_start:chunk_start + CHUNK]
-        e = discord.Embed(color=discord.Color.red())
+        e = discord.Embed(color=discord.Color.purple())
         for i, pregunta in enumerate(chunk):
             idx = chunk_start + i
             respuesta = data.get(f"p{idx+1}", "").strip() or "Sin respuesta"
-            e.add_field(
-                name=f"{arrow_e} P{idx+1}: {pregunta[:100]}",
-                value=f"> {respuesta[:1000]}",
-                inline=False
-            )
+            e.add_field(name=f"{arrow_e} P{idx+1}: {pregunta[:100]}", value=f"> {respuesta[:1000]}", inline=False)
         embeds_preguntas.append(e)
 
     view = BotonesRevision(int(discord_id) if discord_id else 0, discord_tag)
-
-    # Primer mensaje: embed principal + botones
     await canal_revision.send(embed=embed_main, view=view)
-    # Mensajes adicionales: un embed por grupo de preguntas
     for e in embeds_preguntas:
         await canal_revision.send(embed=e)
 
-    # ── Enviar DM al usuario con estado PENDIENTE ──
     if discord_id:
         try:
             miembro = guild.get_member(int(discord_id))
@@ -476,30 +352,26 @@ async def enviar_al_canal_revision_web(data):
                 dm_embed = discord.Embed(
                     title="📬 HEMOS RECIBIDO TU POSTULACION",
                     description=(
-                        "Esta notificación aclara que la recibimos correctamente.\n\n"
-                        "Hemos recibido tu `postulación para formar parte del equipo staff de NightBox` "
-                        "y se encuentra pendiente de revisión.\n"
-                        "Desde ahora, hasta la resolución de la postulación, pueden pasar días. "
+                        "Esta notificacion aclara que la recibimos correctamente.\n\n"
+                        "Hemos recibido tu `postulacion para formar parte del equipo staff de ChowBox` "
+                        "y se encuentra pendiente de revision.\n"
+                        "Desde ahora, hasta la resolucion de la postulacion, pueden pasar dias. "
                         "Por favor, ten paciencia.\n\n"
-                        "> Te notificaremos por este medio en cuanto el equipo tome una decisión.\n\n"
-                        "📋 **Actualización del estado**\n"
+                        "> Te notificaremos por este medio en cuanto el equipo tome una decision.\n\n"
+                        "📋 **Actualizacion del estado**\n"
                         "> Estado actual: `Pendiente`"
                     ),
-                    color=discord.Color.red(),
+                    color=discord.Color.purple(),
                     timestamp=datetime.now()
                 )
                 dm_embed.set_image(url=IMG_PENDIENTE)
-                dm_embed.set_footer(text="NightBox Staff · Sistema de postulaciones")
-
+                dm_embed.set_footer(text="ChowBox Staff · Sistema de postulaciones")
                 dm_msg = await miembro.send(embed=dm_embed)
-                # Guardar el message_id del DM para editarlo después
                 dm_mensajes_postulacion[str(discord_id)] = dm_msg.id
         except Exception as e:
             print(f"No se pudo enviar DM al postulante: {e}")
 
-# ─────────────────────────────────────────
-#  VISTAS / BOTONES
-# ─────────────────────────────────────────
+
 class BotonPostular(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -513,9 +385,8 @@ class BotonPostular(discord.ui.View):
     @discord.ui.button(label="Postularse (Chat)", style=discord.ButtonStyle.primary, custom_id="postular_button", emoji="⛏️")
     async def postular_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id in postulaciones_activas:
-            await interaction.response.send_message("❌ Ya tienes una postulación en proceso.", ephemeral=True)
+            await interaction.response.send_message("❌ Ya tienes una postulacion en proceso.", ephemeral=True)
             return
-
         guild = interaction.guild
         categoria = None
         if config.get("categoria_postulaciones_id"):
@@ -529,7 +400,6 @@ class BotonPostular(discord.ui.View):
                 except Exception as e:
                     await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
                     return
-
         try:
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -543,7 +413,6 @@ class BotonPostular(discord.ui.View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error al crear canal: {e}", ephemeral=True)
             return
-
         postulaciones_activas[interaction.user.id] = {
             "canal_id": canal.id,
             "respuestas": {},
@@ -551,10 +420,7 @@ class BotonPostular(discord.ui.View):
             "inicio": datetime.now().isoformat(),
             "tiempo_limite": datetime.now() + timedelta(minutes=34)
         }
-
-        await interaction.response.send_message(
-            f"> <:si_mineback:1454893106179735642> Canal creado: {canal.mention}", ephemeral=True
-        )
+        await interaction.response.send_message(f"> <:si_mineback:1454893106179735642> Canal creado: {canal.mention}", ephemeral=True)
         await iniciar_postulacion(canal, interaction.user)
         asyncio.create_task(temporizador_postulacion(canal, interaction.user.id, 34))
 
@@ -565,7 +431,7 @@ async def temporizador_postulacion(canal, user_id, minutos):
         postulacion = postulaciones_activas[user_id]
         if postulacion["canal_id"] == canal.id:
             try:
-                await canal.send("⏰ **Tiempo agotado.** El canal se cerrará en 10 segundos.")
+                await canal.send("⏰ **Tiempo agotado.** El canal se cerrara en 10 segundos.")
                 await asyncio.sleep(10)
                 await canal.delete()
                 del postulaciones_activas[user_id]
@@ -575,12 +441,12 @@ async def temporizador_postulacion(canal, user_id, minutos):
 
 async def iniciar_postulacion(canal, usuario):
     guild = canal.guild
-    nightbox_e  = get_emoji(guild, EMOJI_MAPPING['nightbox'])  or '🌙'
+    chowbox_e   = get_emoji(guild, EMOJI_MAPPING['chowbox'])  or '🌙'
     minecraft_e = get_emoji(guild, EMOJI_MAPPING['minecraft']) or '⛏️'
     embed = discord.Embed(
-        title=f"{nightbox_e} Proceso de Postulación — Staff NightBox",
-        description=f"¡Hola {usuario.mention}! Bienvenido a tu canal privado de postulación.",
-        color=discord.Color.red()
+        title=f"{chowbox_e} Proceso de Postulacion — Staff ChowBox",
+        description=f"¡Hola {usuario.mention}! Bienvenido a tu canal privado de postulacion.",
+        color=discord.Color.purple()
     )
     embed.add_field(name=f"{minecraft_e} Instrucciones", value=(
         "**1.** Responde cada pregunta de forma clara y detallada.\n"
@@ -603,7 +469,7 @@ async def finalizar_postulacion(canal, user_id):
     postulacion = postulaciones_activas.get(user_id)
     if not postulacion:
         return
-    embed = discord.Embed(title="📋 Resumen de tu postulación", color=discord.Color.red())
+    embed = discord.Embed(title="📋 Resumen de tu postulacion", color=discord.Color.purple())
     for i, pregunta in enumerate(preguntas_data["preguntas"]):
         embed.add_field(name=f"P{i+1}: {pregunta}", value=postulacion["respuestas"].get(i, "Sin respuesta")[:1024], inline=False)
     await canal.send(embed=embed, view=ConfirmarPostulacion(user_id))
@@ -622,7 +488,6 @@ class BotonesRevision(discord.ui.View):
         return canal
 
     async def _editar_dm_estado(self, guild, nuevo_estado: str, color: discord.Color, emoji_estado: str):
-        """Edita el DM original del postulante para cambiar el estado."""
         usuario = guild.get_member(self.user_id)
         if not usuario:
             return
@@ -652,55 +517,49 @@ class BotonesRevision(discord.ui.View):
 
     @discord.ui.button(label="Aceptar", style=discord.ButtonStyle.success, custom_id="aceptar_postulacion", emoji="✅")
     async def aceptar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verificar si el usuario tiene el rol autorizado
         tiene_rol = any(role.id == ROL_STAFF_AUTORIZADO_ID for role in interaction.user.roles)
-        print(f"🔑 Intento aceptar — user.id={interaction.user.id} | tiene_rol={tiene_rol}")
         if not tiene_rol:
-            await interaction.response.send_message("❌ No tienes permiso para realizar esta acción. Necesitas el rol de staff autorizado.", ephemeral=True)
+            await interaction.response.send_message("❌ No tienes permiso para realizar esta accion.", ephemeral=True)
             return
         guild     = interaction.guild
         canal_res = await self._get_canal_resultados(guild)
         usuario   = guild.get_member(self.user_id)
-
         if canal_res:
             nombre = usuario.mention if usuario else f"**{self.username}**"
             e = discord.Embed(
-                title=f"[INGRESO] El postulante {self.username} fue admitido en el Staff de NightBox",
+                title=f"[INGRESO] El postulante {self.username} fue admitido en el Staff de ChowBox",
                 description=(
-                    f"{nombre} fue admitido en el Staff de NightBox\n\n"
-                    "Al igual que los demás postulantes y staff, esperamos que logre alcanzar sus metas, "
-                    "y demostrar lo mucho que vale dentro de NightBox.\n\n"
+                    f"{nombre} fue admitido en el Staff de ChowBox\n\n"
+                    "Al igual que los demas postulantes y staff, esperamos que logre alcanzar sus metas, "
+                    "y demostrar lo mucho que vale dentro de ChowBox.\n\n"
                     "> ➡ Recuerda que entrar al staff es solo el comienzo. Hay muchas etapas que aprobar una vez logres entrar.\n"
-                    "> ¡Mantenerse y crecer es lo difícil!\n\n"
-                    'Un día un sabio dijo... "*Las pequeñas cosas son las responsables de los **grandes cambios**"'
+                    "> ¡Mantenerse y crecer es lo dificil!\n\n"
+                    'Un dia un sabio dijo... "*Las pequeñas cosas son las responsables de los **grandes cambios**"'
                 ),
-                color=discord.Color.red(),
+                color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
             e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1498136175339245588/content.png?ex=69f00f8a&is=69eebe0a&hm=6df4bd118fc527956c31c0977939d3d1abdd854ba3708fcedeeab851a1495b86&=&format=webp&quality=lossless&width=393&height=315")
             await canal_res.send(embed=e)
-
         if usuario:
             try:
                 e_dm = discord.Embed(
                     title="✅ ACTUALIZACION DE TU POSTULACION",
                     description=(
-                        "¡Tu postulación fue **aceptada**! ¡Bienvenido al equipo! 🎊\n\n"
-                        "📋 **Actualización del estado**\n"
+                        "¡Tu postulacion fue **aceptada**! ¡Bienvenido al equipo! 🎊\n\n"
+                        "📋 **Actualizacion del estado**\n"
                         "> Estado actual: `Aceptado` ✅"
                     ),
                     color=discord.Color.green(),
                     timestamp=datetime.now()
                 )
-                e_dm.set_footer(text="NightBox Staff · Sistema de postulaciones")
+                e_dm.set_footer(text="ChowBox Staff · Sistema de postulaciones")
                 await usuario.send(embed=e_dm)
             except:
                 pass
-
         await self._editar_dm_estado(guild, "Aceptado", discord.Color.green(), "✅")
-
         embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed(color=discord.Color.green())
-        embed.title = "✅ POSTULACIÓN ACEPTADA"
+        embed.title = "✅ POSTULACION ACEPTADA"
         embed.color = discord.Color.green()
         for item in self.children: item.disabled = True
         await interaction.response.send_message(f"> ✅ Aceptada por {interaction.user.mention}", ephemeral=False)
@@ -708,55 +567,50 @@ class BotonesRevision(discord.ui.View):
 
     @discord.ui.button(label="Rechazar", style=discord.ButtonStyle.danger, custom_id="rechazar_postulacion", emoji="❌")
     async def rechazar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verificar si el usuario tiene el rol autorizado
         tiene_rol = any(role.id == ROL_STAFF_AUTORIZADO_ID for role in interaction.user.roles)
         if not tiene_rol:
-            await interaction.response.send_message("❌ No tienes permiso para realizar esta acción. Necesitas el rol de staff autorizado.", ephemeral=True)
+            await interaction.response.send_message("❌ No tienes permiso para realizar esta accion.", ephemeral=True)
             return
         guild     = interaction.guild
         canal_res = await self._get_canal_resultados(guild)
         usuario   = guild.get_member(self.user_id)
-
         if canal_res:
             nombre = usuario.mention if usuario else f"**{self.username}**"
             e = discord.Embed(
-                title=f"[RESULTADO] La postulación de {self.username} fue rechazada en el Staff de NightBox",
+                title=f"[RESULTADO] La postulacion de {self.username} fue rechazada en el Staff de ChowBox",
                 description=(
-                    f"{nombre} tu postulación para formar parte del Staff de NightBox ha sido revisada, "
-                    "y en esta ocasión no ha sido aprobada.\n\n"
-                    "Agradecemos el tiempo, esfuerzo e interés que mostraste al querer formar parte del equipo de NightBox.\n\n"
+                    f"{nombre} tu postulacion para formar parte del Staff de ChowBox ha sido revisada, "
+                    "y en esta ocasion no ha sido aprobada.\n\n"
+                    "Agradecemos el tiempo, esfuerzo e interes que mostraste al querer formar parte del equipo de ChowBox.\n\n"
                     "> ➡ Recuerda: un rechazo no define tu capacidad. Siempre puedes mejorar, aprender y volver a intentarlo en el futuro.\n"
                     "> Cada experiencia es una oportunidad para crecer.\n\n"
-                    'Un día un sabio dijo... "Los grandes logros nacen después de muchos intentos."'
+                    'Un dia un sabio dijo... "Los grandes logros nacen despues de muchos intentos."'
                 ),
-                color=discord.Color.red(),
+                color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
             e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1498136189763588106/content.png?ex=69f00f8d&is=69eebe0d&hm=426f24866be5b9ded8ee44c20590a3a5cf6e939cdcc71fb7c947142b3935eb73&=&format=webp&quality=lossless&width=393&height=315")
             await canal_res.send(embed=e)
-
         if usuario:
             try:
                 e_dm = discord.Embed(
                     title="❌ ACTUALIZACION DE TU POSTULACION",
                     description=(
-                        "Tu postulación fue **rechazada**. Puedes reintentar en 14 días. 💪\n\n"
-                        "📋 **Actualización del estado**\n"
+                        "Tu postulacion fue **rechazada**. Puedes reintentar en 14 dias. 💪\n\n"
+                        "📋 **Actualizacion del estado**\n"
                         "> Estado actual: `Rechazado` ❌"
                     ),
-                    color=discord.Color.red(),
+                    color=discord.Color.purple(),
                     timestamp=datetime.now()
                 )
-                e_dm.set_footer(text="NightBox Staff · Sistema de postulaciones")
+                e_dm.set_footer(text="ChowBox Staff · Sistema de postulaciones")
                 await usuario.send(embed=e_dm)
             except:
                 pass
-
-        await self._editar_dm_estado(guild, "Rechazado", discord.Color.red(), "❌")
-
-        embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed(color=discord.Color.red())
-        embed.title = "❌ POSTULACIÓN RECHAZADA"
-        embed.color = discord.Color.red()
+        await self._editar_dm_estado(guild, "Rechazado", discord.Color.purple(), "❌")
+        embed = interaction.message.embeds[0] if interaction.message.embeds else discord.Embed(color=discord.Color.purple())
+        embed.title = "❌ POSTULACION RECHAZADA"
+        embed.color = discord.Color.purple()
         for item in self.children: item.disabled = True
         await interaction.response.send_message(f"> ❌ Rechazada por {interaction.user.mention}", ephemeral=False)
         await interaction.message.edit(embed=embed, view=self)
@@ -767,17 +621,15 @@ class ConfirmarPostulacion(discord.ui.View):
         super().__init__(timeout=None)
         self.user_id = user_id
 
-    @discord.ui.button(label="Enviar postulación", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Enviar postulacion", style=discord.ButtonStyle.success, emoji="✅")
     async def enviar(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Esta no es tu postulación.", ephemeral=True)
+            await interaction.response.send_message("❌ Esta no es tu postulacion.", ephemeral=True)
             return
-
         postulacion = postulaciones_activas.get(self.user_id)
         if not postulacion:
-            await interaction.response.send_message("❌ Error al encontrar tu postulación.", ephemeral=True)
+            await interaction.response.send_message("❌ Error al encontrar tu postulacion.", ephemeral=True)
             return
-
         guild = interaction.guild
         canal_revision = guild.get_channel(config.get("canal_revision_id")) if config.get("canal_revision_id") else None
         if not canal_revision:
@@ -787,73 +639,58 @@ class ConfirmarPostulacion(discord.ui.View):
                     canal_revision = await guild.create_text_channel(name="postulaciones-staff")
                     config["canal_revision_id"] = canal_revision.id
                 except: pass
-
         if canal_revision:
-            # Emojis
-            nightbox_e = get_emoji(interaction.guild, EMOJI_MAPPING['nightbox']) or '🌙'
+            chowbox_e  = get_emoji(interaction.guild, EMOJI_MAPPING['chowbox']) or '🌙'
             arrow_e    = get_emoji(interaction.guild, '1383arrowright') or '➡️'
-
             preguntas_lista = preguntas_data["preguntas"]
-
-            # ── Embed principal ──
             embed_main = discord.Embed(
                 description=(
-                    f"{nightbox_e} **Postulacion De {interaction.user.display_name}**\n"
+                    f"{chowbox_e} **Postulacion De {interaction.user.display_name}**\n"
                     f"{arrow_e} **Discord:** {interaction.user}\n"
                     f"{arrow_e} **ID:** `{interaction.user.id}`"
                 ),
-                color=discord.Color.red(),
+                color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
             embed_main.set_thumbnail(url=interaction.user.display_avatar.url)
-            embed_main.set_footer(text=f"Postulación de {interaction.user.name}")
-
-            # ── Embeds de preguntas (máx 12 por embed) ──
+            embed_main.set_footer(text=f"Postulacion de {interaction.user.name}")
             CHUNK = 12
             embeds_preguntas = []
             for chunk_start in range(0, len(preguntas_lista), CHUNK):
                 chunk = preguntas_lista[chunk_start:chunk_start + CHUNK]
-                e = discord.Embed(color=discord.Color.red())
+                e = discord.Embed(color=discord.Color.purple())
                 for i, pregunta in enumerate(chunk):
                     idx = chunk_start + i
                     respuesta = postulacion["respuestas"].get(idx, "Sin respuesta")
-                    e.add_field(
-                        name=f"{arrow_e} P{idx+1}: {pregunta[:100]}",
-                        value=f"> {str(respuesta)[:1000]}",
-                        inline=False
-                    )
+                    e.add_field(name=f"{arrow_e} P{idx+1}: {pregunta[:100]}", value=f"> {str(respuesta)[:1000]}", inline=False)
                 embeds_preguntas.append(e)
-
             view = BotonesRevision(interaction.user.id, interaction.user.name)
             await canal_revision.send(embed=embed_main, view=view)
             for e in embeds_preguntas:
                 await canal_revision.send(embed=e)
-
-        await interaction.response.send_message("✅ **¡Postulación enviada!** Este canal se cerrará en 5 segundos.")
-
+        await interaction.response.send_message("✅ **¡Postulacion enviada!** Este canal se cerrara en 5 segundos.")
         try:
             dm_embed = discord.Embed(
                 title="📬 HEMOS RECIBIDO TU POSTULACION",
                 description=(
-                    "Esta notificación aclara que la recibimos correctamente.\n\n"
-                    "Hemos recibido tu `postulación para formar parte del equipo staff de NightBox` "
-                    "y se encuentra pendiente de revisión.\n"
-                    "Desde ahora, hasta la resolución de la postulación, pueden pasar días. "
+                    "Esta notificacion aclara que la recibimos correctamente.\n\n"
+                    "Hemos recibido tu `postulacion para formar parte del equipo staff de ChowBox` "
+                    "y se encuentra pendiente de revision.\n"
+                    "Desde ahora, hasta la resolucion de la postulacion, pueden pasar dias. "
                     "Por favor, ten paciencia.\n\n"
-                    "> Te notificaremos por este medio en cuanto el equipo tome una decisión.\n\n"
-                    "📋 **Actualización del estado**\n"
+                    "> Te notificaremos por este medio en cuanto el equipo tome una decision.\n\n"
+                    "📋 **Actualizacion del estado**\n"
                     "> Estado actual: `Pendiente`"
                 ),
-                color=discord.Color.red(),
+                color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
             dm_embed.set_image(url=IMG_PENDIENTE)
-            dm_embed.set_footer(text="NightBox Staff · Sistema de postulaciones")
+            dm_embed.set_footer(text="ChowBox Staff · Sistema de postulaciones")
             dm_msg = await interaction.user.send(embed=dm_embed)
             dm_mensajes_postulacion[str(interaction.user.id)] = dm_msg.id
         except Exception as e:
             print(f"No se pudo enviar DM (chat): {e}")
-
         del postulaciones_activas[self.user_id]
         await asyncio.sleep(5)
         try: await interaction.channel.delete()
@@ -862,9 +699,9 @@ class ConfirmarPostulacion(discord.ui.View):
     @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancelar(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Esta no es tu postulación.", ephemeral=True)
+            await interaction.response.send_message("❌ Esta no es tu postulacion.", ephemeral=True)
             return
-        await interaction.response.send_message("❌ Postulación cancelada. Cerrando en 5 segundos.")
+        await interaction.response.send_message("❌ Postulacion cancelada. Cerrando en 5 segundos.")
         if self.user_id in postulaciones_activas:
             del postulaciones_activas[self.user_id]
         await asyncio.sleep(5)
@@ -872,12 +709,7 @@ class ConfirmarPostulacion(discord.ui.View):
         except: pass
 
 
-# ─────────────────────────────────────────
-#  EVENTOS Y COMANDOS
-# ─────────────────────────────────────────
-
 def tiene_rol_staff(interaction: discord.Interaction) -> bool:
-    """Verifica si el usuario tiene el rol de staff autorizado o es administrador."""
     if interaction.user.guild_permissions.administrator:
         return True
     return any(role.id == ROL_STAFF_AUTORIZADO_ID for role in interaction.user.roles)
@@ -893,15 +725,15 @@ async def abrir_postulaciones(interaction: discord.Interaction):
     embed = discord.Embed(
         title="✅ Postulaciones abiertas",
         description=(
-            "Las postulaciones de staff están ahora **abiertas**.\n\n"
+            "Las postulaciones de staff estan ahora **abiertas**.\n\n"
             "🔄 El historial de postulaciones fue reiniciado — todos pueden volver a postularse."
         ),
         color=discord.Color.green()
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="limpiar_postulacion", description="Permite a un usuario volver a postularse (resetea su postulación)")
-@app_commands.describe(usuario="El usuario al que quieres resetear la postulación")
+@bot.tree.command(name="limpiar_postulacion", description="Permite a un usuario volver a postularse")
+@app_commands.describe(usuario="El usuario al que quieres resetear la postulacion")
 async def limpiar_postulacion(interaction: discord.Interaction, usuario: discord.Member):
     if not tiene_rol_staff(interaction):
         await interaction.response.send_message("❌ No tienes permiso para usar este comando.", ephemeral=True)
@@ -910,19 +742,10 @@ async def limpiar_postulacion(interaction: discord.Interaction, usuario: discord
     eliminado = uid in postulaciones_enviadas
     postulaciones_enviadas.discard(uid)
     dm_mensajes_postulacion.pop(uid, None)
-
     if eliminado:
-        embed = discord.Embed(
-            title="🔄 Postulación reseteada",
-            description=f"{usuario.mention} puede volver a postularse.",
-            color=discord.Color.green()
-        )
+        embed = discord.Embed(title="🔄 Postulacion reseteada", description=f"{usuario.mention} puede volver a postularse.", color=discord.Color.green())
     else:
-        embed = discord.Embed(
-            title="⚠️ Sin postulación registrada",
-            description=f"{usuario.mention} no tenía ninguna postulación enviada.",
-            color=discord.Color.orange()
-        )
+        embed = discord.Embed(title="⚠️ Sin postulacion registrada", description=f"{usuario.mention} no tenia ninguna postulacion enviada.", color=discord.Color.orange())
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="cerrar_postulaciones", description="Cierra las postulaciones de staff")
@@ -931,12 +754,11 @@ async def cerrar_postulaciones(interaction: discord.Interaction):
         await interaction.response.send_message("❌ No tienes permiso para usar este comando.", ephemeral=True)
         return
     estado_postulaciones["abierto"] = False
-    embed = discord.Embed(title="🔒 Postulaciones cerradas", description="Las postulaciones de staff están ahora **cerradas**.", color=discord.Color.red())
+    embed = discord.Embed(title="🔒 Postulaciones cerradas", description="Las postulaciones de staff estan ahora **cerradas**.", color=discord.Color.purple())
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.event
 async def rotar_status():
-    """Rota el status del bot entre dos actividades."""
     await bot.wait_until_ready()
     while not bot.is_closed():
         total = len(postulaciones_enviadas)
@@ -948,22 +770,20 @@ async def rotar_status():
             await bot.change_presence(status=discord.Status.online, activity=actividad)
             await asyncio.sleep(10)
 
-
 @bot.event
 async def on_ready():
-    print(f'✅ Bot conectado como {bot.user}')
-    print(f'🌐 Página web activa con OAuth2 Discord')
+    print(f'Bot conectado como {bot.user}')
+    print(f'Pagina web activa con OAuth2 Discord')
     try:
         synced = await bot.tree.sync()
-        print(f'✅ {len(synced)} comandos sincronizados')
+        print(f'{len(synced)} comandos sincronizados')
     except Exception as e:
-        print(f'❌ Error: {e}')
+        print(f'Error: {e}')
     bot.add_view(BotonPostular())
     bot.add_view(BotonesRevision(0, ""))
     bot.loop.create_task(procesar_postulaciones_web())
     bot.loop.create_task(rotar_status())
-    print("✅ Sistema listo")
-
+    print("Sistema listo")
 
 @bot.event
 async def on_message(message):
@@ -982,36 +802,32 @@ async def on_message(message):
                 except Exception as e: print(f"Error: {e}")
     await bot.process_commands(message)
 
-
 @bot.tree.command(name="setup_postulaciones", description="Configura el sistema de postulaciones")
 async def setup_postulaciones(interaction: discord.Interaction):
     if not tiene_rol_staff(interaction):
         await interaction.response.send_message("❌ No tienes permiso para usar este comando.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
-
     guild = interaction.guild
-    nightbox_e  = get_emoji(guild, EMOJI_MAPPING['nightbox'])        or '🌙'
-    minecraft_e = get_emoji(guild, EMOJI_MAPPING['minecraft'])       or '⛏️'
-    cohete_e    = get_emoji(guild, EMOJI_MAPPING['cohete_nightbox']) or '🚀'
-
+    chow_logo          = get_emoji(guild, EMOJI_MAPPING['chow_logo'])         or '🌙'
+    chowbox_confirmado = get_emoji(guild, EMOJI_MAPPING['chowbox_confirmado']) or '✅'
+    chowbox_mono       = get_emoji(guild, EMOJI_MAPPING['chowbox_mono'])       or '🐒'
     embed = discord.Embed(
         description=(
-            f"# {nightbox_e} - ¡POSTULACIONES ABIERTAS!\n"
-            "¿Estás interesado en ser parte del Staff-Team?\n"
-            "Si es así, no esperes más. Esta es tu oportunidad. Postúlate dando clic en el botón de abajo.\n\n"
+            f"# {chow_logo} - ¡POSTULACIONES ABIERTAS!\n"
+            "¿Estas interesado en ser parte del Staff-Team?\n"
+            "Si es asi, no esperes mas. Esta es tu oportunidad. Postulate dando clic en el boton de abajo.\n\n"
             "# Requisitos a cumplir:\n"
-            f"{minecraft_e}: Tener mínimo 14 Años.\n"
-            f"{minecraft_e}: Ser premium.\n"
-            f"{minecraft_e}: Historial limpio en el servidor.\n"
-            f"{minecraft_e}: No ser staff en otro servidor.\n"
-            f"{minecraft_e}: Buena ortografía y madurez.\n\n"
-            f"{cohete_e} - **¡Postúlate dando clic en el botón de abajo!**\n\n"
-            f"{nightbox_e} | NightBox"
+            f"{chowbox_confirmado}: Tener minimo 14 Anos.\n"
+            f"{chowbox_confirmado}: Ser premium.\n"
+            f"{chowbox_confirmado}: Historial limpio en el servidor.\n"
+            f"{chowbox_confirmado}: No ser staff en otro servidor.\n"
+            f"{chowbox_confirmado}: Buena ortografia y madurez.\n\n"
+            f"{chowbox_mono} - **¡Postulate dando clic en el boton de abajo!**\n\n"
+            f"{chow_logo} | ChowBox Postulaciones"
         ),
-        color=discord.Color.red()
+        color=discord.Color.purple()
     )
-
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(
         label="Postularse",
@@ -1019,22 +835,16 @@ async def setup_postulaciones(interaction: discord.Interaction):
         url=WEB_URL or "https://nighboxpostulaciones.up.railway.app/",
         emoji="🌐"
     ))
-
     await interaction.channel.send(embed=embed, view=view)
     await interaction.followup.send("✅ Configurado!", ephemeral=True)
 
-
 @bot.tree.command(name="ayuda_postulaciones", description="Ayuda sobre el sistema")
 async def ayuda_postulaciones(interaction: discord.Interaction):
-    embed = discord.Embed(title="ℹ️ Ayuda - Postulaciones", color=discord.Color.red())
-    embed.add_field(name="🌐 Web", value="Haz clic en el botón → inicia sesión con Discord → completa el formulario.", inline=False)
+    embed = discord.Embed(title="ℹ️ Ayuda - Postulaciones", color=discord.Color.purple())
+    embed.add_field(name="🌐 Web", value="Haz clic en el boton → inicia sesion con Discord → completa el formulario.", inline=False)
     embed.add_field(name="🔐 Seguridad", value="El sistema verifica tu identidad con Discord OAuth2.", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-
-# ─────────────────────────────────────────
-#  ARRANQUE
-# ─────────────────────────────────────────
 if __name__ == "__main__":
     TOKEN = os.environ.get("TOKEN") or os.environ.get("token") or ""
     TOKEN = TOKEN.strip()
@@ -1047,6 +857,6 @@ if __name__ == "__main__":
         try:
             bot.run(TOKEN)
         except discord.LoginFailure:
-            print("❌ Token inválido.")
+            print("❌ Token invalido.")
         except Exception as e:
             print(f"❌ ERROR: {e}")
