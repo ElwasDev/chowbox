@@ -53,6 +53,7 @@ def get_redirect_uri():
 
 ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1500704116924743730"))
 ROL_NUEVO_STAFF_ID       = int(os.environ.get("ROL_NUEVO_STAFF_ID", "1500703939354431539"))
+CANAL_BIENVENIDA_ID      = int(os.environ.get("CANAL_BIENVENIDA_ID", "1500700654971261054"))
 GUILD_ID = int(os.environ.get("GUILD_ID", "1500700653444665416"))
 
 postulaciones_web_pendientes = []
@@ -799,6 +800,31 @@ async def on_ready():
     bot.loop.create_task(procesar_postulaciones_web())
     bot.loop.create_task(rotar_status())
     print("Sistema listo")
+
+@bot.event
+async def on_member_join(member):
+    canal = member.guild.get_channel(CANAL_BIENVENIDA_ID)
+    if not canal:
+        return
+    numero = member.guild.member_count
+    chowbox_e = get_emoji(member.guild, EMOJI_MAPPING['chowbox']) or '⚡'
+    embed = discord.Embed(
+        title=f"Bienvenido(a) a Chowbox Network",
+        description=(
+            f"¡Hola {member.mention} bienvenido(a) a DiosesMC Postulaciones! ⚡\n\n"
+            f"» Recuerda leer cómo postularte para entrenarte antes de postularte. "
+            f"También será muy útil que revises el canal <#1500701909672005813>.\n\n"
+            f"# ENLACES ÚTILES\n"
+            f"> `01.` <#1500702297397919814>\n"
+            f"> `02.` <#1500702077125398548>\n\n"
+            f"{member.mention} Te has convertido en el usuario número **{numero}**"
+        ),
+        color=discord.Color.purple(),
+        timestamp=datetime.now()
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.set_footer(text="Chowbox Network · Bienvenidas")
+    await canal.send(content=member.mention, embed=embed)
 
 @bot.event
 async def on_message(message):
