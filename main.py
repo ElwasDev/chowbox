@@ -16,7 +16,7 @@ from flask import Flask, send_from_directory, jsonify, request, redirect, sessio
 import threading
 
 EMOJI_MAPPING = {
-    'chowbox':              'chowbox',
+    'chowbox':              'chowbox_',
     'chow_logo':            'chowbox_',
     'chowbox_confirmado':   'chowbox_confirmado',
     'chowbox_mono':         'chowbox_mono',
