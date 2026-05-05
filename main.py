@@ -22,6 +22,7 @@ EMOJI_MAPPING = {
     'chowbox_mono':         'chowbox_mono',
     'minecraft':            'minecraft',
     'flecha':               'flecha',
+    'libroembrujado':       'libroembrujado',
     'cohete_chowbox':       'cohete_chowbox',
 }
 
@@ -213,7 +214,10 @@ def ver_postulacion(token):
         </div>"""
     else:
         estado = data.get("_estado", "Procesada")
-        botones = f'<div class="badge">✔ Postulación {estado}</div>'
+        if estado == "Aceptada":
+            botones = '<div class="badge badge-aceptada">✅ Postulación Aceptada</div>'
+        else:
+            botones = '<div class="badge badge-rechazada">❌ Postulación Rechazada</div>'
 
     html = f"""<!DOCTYPE html>
 <html lang="es">
@@ -223,7 +227,12 @@ def ver_postulacion(token):
 <title>Postulación — {nombre}</title>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{background:#0e0e1a;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501370161691889774/pajeros.gif?ex=69fbd36c&is=69fa81ec&hm=9c4aded1e34be7e1b8f2186a5cc6937be5e02ded7d53433df8dbd043a5c83911&=&width=450&height=252') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  body::before{{content:'';position:fixed;inset:0;background:#0008;z-index:0}}
+  .card{{position:relative;z-index:1}}
+  .logo-container{{text-align:center;margin-bottom:24px;position:relative;z-index:1}}
+  .logo{{width:120px;height:120px;object-fit:contain;border-radius:50%;animation:pulse 2s ease-in-out infinite;filter:drop-shadow(0 0 16px #7c3fc1)}}
+  @keyframes pulse{{0%,100%{{transform:scale(1);filter:drop-shadow(0 0 16px #7c3fc1)}}50%{{transform:scale(1.08);filter:drop-shadow(0 0 28px #b36ef0)}}}}
   .card{{max-width:720px;margin:0 auto;background:#16162a;border-radius:18px;overflow:hidden;box-shadow:0 8px 40px #0008}}
   .header{{background:linear-gradient(135deg,#5b2d8e,#7c3fc1);padding:32px 28px;display:flex;align-items:center;gap:20px}}
   .avatar{{width:72px;height:72px;border-radius:50%;border:3px solid #fff4;object-fit:cover}}
@@ -241,10 +250,15 @@ def ver_postulacion(token):
   .btn-reject{{background:#8b2020;color:#fff;border:none;padding:12px 36px;border-radius:10px;font-size:1rem;cursor:pointer;font-weight:600;transition:.2s}}
   .btn-reject:hover{{background:#b03030}}
   .badge{{text-align:center;margin-top:24px;padding:14px;background:#1e1e35;border-radius:10px;font-weight:600;font-size:1rem;color:#b39ddb}}
+  .badge-aceptada{{background:#1a3d2b;color:#4caf50;border:2px solid #4caf50}}
+  .badge-rechazada{{background:#3d1a1a;color:#f44336;border:2px solid #f44336}}
   .footer{{text-align:center;opacity:.4;font-size:.8rem;padding:16px 0 24px}}
 </style>
 </head>
 <body>
+<div class="logo-container">
+  <img class="logo" src="https://media.discordapp.net/attachments/1145130881124667422/1501370540819091557/postulciones_chowbox.png?ex=69fbd3c7&is=69fa8247&hm=3bffe0684e727214c5b895008f728e8480e470dc9e74b023831b22c3f068e74d&=&format=webp&quality=lossless&width=562&height=562" alt="Chowbox">
+</div>
 <div class="card">
   <div class="header">
     {'<img class="avatar" src="' + avatar + '">' if avatar else '<div class="avatar-placeholder">👤</div>'}
@@ -408,6 +422,26 @@ async def accion_postulacion_web(token, accion):
     guild = bot.get_guild(GUILD_ID)
     if not guild:
         return
+    # Editar embed original con nuevo estado
+    try:
+        ch = guild.get_channel(data.get("_channel_id", 0))
+        if ch and data.get("_message_id"):
+            msg_orig = await ch.fetch_message(data["_message_id"])
+            if msg_orig and msg_orig.embeds:
+                emb = msg_orig.embeds[0]
+                if accion == "aceptar":
+                    emb.color = discord.Color.green()
+                    new_desc = emb.description.replace("> 📋 **Estado:** `En Revision` 🔍", "> 📋 **Estado:** `Aceptado` ✅")
+                else:
+                    emb.color = discord.Color.red()
+                    new_desc = emb.description.replace("> 📋 **Estado:** `En Revision` 🔍", "> 📋 **Estado:** `Rechazado` ❌")
+                emb = emb.copy()
+                emb.description = new_desc
+                view_disabled = discord.ui.View(timeout=None)
+                view_disabled.add_item(discord.ui.Button(label="Ver Postulacion", style=discord.ButtonStyle.link, url=f"{WEB_URL}/ver/{token}", emoji=get_emoji(guild, EMOJI_MAPPING["libroembrujado"]) or "📋"))
+                await msg_orig.edit(embed=emb, view=view_disabled)
+    except Exception as ex:
+        print(f"[EMBED EDIT] Error: {ex}")
     discord_id  = data.get("discord_id", "")
     discord_tag = data.get("discord", "?")
     discord_name = data.get("discord_name", discord_tag)
@@ -541,7 +575,8 @@ async def enviar_al_canal_revision_web(data):
             f"{arrow_e} **Usuario:** {discord_name}\n"
             f"{arrow_e} **Discord:** @{discord_tag}\n"
             f"{arrow_e} **ID:** `{discord_id}`\n\n"
-            f"Haz clic en **Ver Postulacion** para revisar todas las respuestas y decidir."
+            f"Haz clic en **Ver Postulacion** para revisar todas las respuestas y decidir.\n\n"
+            f"> 📋 **Estado:** `En Revision` 🔍"
         ),
         color=discord.Color.purple(),
         timestamp=datetime.now()
@@ -555,9 +590,11 @@ async def enviar_al_canal_revision_web(data):
         label="Ver Postulacion",
         style=discord.ButtonStyle.link,
         url=url_ver,
-        emoji="📋"
+        emoji=get_emoji(guild, EMOJI_MAPPING["libroembrujado"]) or "📋"
     ))
-    await canal_revision.send(embed=embed_main, view=view)
+    msg = await canal_revision.send(embed=embed_main, view=view)
+    data["_message_id"] = msg.id
+    data["_channel_id"] = canal_revision.id
 
     if discord_id:
         try:
