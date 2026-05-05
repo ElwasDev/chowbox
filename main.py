@@ -51,7 +51,7 @@ IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/14
 def get_redirect_uri():
     return f"{WEB_URL}/callback"
 
-ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1498403018993959154"))
+ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1410042114213023764"))
 GUILD_ID = int(os.environ.get("GUILD_ID", "1399211863228678194"))
 
 postulaciones_web_pendientes = []
