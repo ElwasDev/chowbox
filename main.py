@@ -51,8 +51,9 @@ IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/15
 def get_redirect_uri():
     return f"{WEB_URL}/callback"
 
-ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1410042114213023764"))
-GUILD_ID = int(os.environ.get("GUILD_ID", "1399211863228678194"))
+ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1500704116924743730"))
+ROL_NUEVO_STAFF_ID       = int(os.environ.get("ROL_NUEVO_STAFF_ID", "1500703939354431539"))
+GUILD_ID = int(os.environ.get("GUILD_ID", "1500700653444665416"))
 
 postulaciones_web_pendientes = []
 postulaciones_enviadas = set()
@@ -548,6 +549,12 @@ class BotonesRevision(discord.ui.View):
             e.set_image(url="https://cdn.discordapp.com/attachments/1145130881124667422/1501351358727454781/nuevostaff_chowbox.png?ex=69fbc1e9&is=69fa7069&hm=0ad9be7fb226defbe0de6bf3d9ab306c7878e25f94f69c58430a63b8d8e4d5c0")
             await canal_res.send(embed=e)
         if usuario:
+            try:
+                rol_staff = guild.get_role(ROL_NUEVO_STAFF_ID)
+                if rol_staff:
+                    await usuario.add_roles(rol_staff, reason="Postulacion aceptada")
+            except Exception as e:
+                print(f"[ROL] No se pudo otorgar rol: {e}")
             try:
                 e_dm = discord.Embed(
                     title="✅ ACTUALIZACION DE TU POSTULACION",
