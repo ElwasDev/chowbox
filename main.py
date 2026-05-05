@@ -23,6 +23,7 @@ EMOJI_MAPPING = {
     'minecraft':            'minecraft',
     'flecha':               'flecha',
     'libroembrujado':       'libroembrujado',
+    'lupa_chow':            'lupa_chow',
     'cohete_chowbox':       'cohete_chowbox',
 }
 
@@ -227,21 +228,21 @@ def ver_postulacion(token):
 <title>Postulación — {nombre}</title>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501370161691889774/pajeros.gif?ex=69fbd36c&is=69fa81ec&hm=9c4aded1e34be7e1b8f2186a5cc6937be5e02ded7d53433df8dbd043a5c83911&=&width=450&height=252') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501371968409305170/1e640360d6f43b5c37d8d77c1f20287d.png?ex=69fbd51b&is=69fa839b&hm=972c21a597f7e714fbfb5eb5066be2d2e020fa8f1ee6b355a784916d97101712&=&format=webp&quality=lossless&width=661&height=220') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
   body::before{{content:'';position:fixed;inset:0;background:#0008;z-index:0}}
   .card{{position:relative;z-index:1}}
   .logo-container{{text-align:center;margin-bottom:24px;position:relative;z-index:1}}
   .logo{{width:120px;height:120px;object-fit:contain;border-radius:50%;animation:pulse 2s ease-in-out infinite;filter:drop-shadow(0 0 16px #7c3fc1)}}
   @keyframes pulse{{0%,100%{{transform:scale(1);filter:drop-shadow(0 0 16px #7c3fc1)}}50%{{transform:scale(1.08);filter:drop-shadow(0 0 28px #b36ef0)}}}}
-  .card{{max-width:720px;margin:0 auto;background:#16162a;border-radius:18px;overflow:hidden;box-shadow:0 8px 40px #0008}}
-  .header{{background:linear-gradient(135deg,#5b2d8e,#7c3fc1);padding:32px 28px;display:flex;align-items:center;gap:20px}}
+  .card{{max-width:720px;margin:0 auto;background:rgba(22,22,42,0.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:18px;overflow:hidden;box-shadow:0 8px 40px #0008;border:1px solid rgba(124,63,193,0.3)}}
+  .header{{background:linear-gradient(135deg,rgba(91,45,142,0.6),rgba(124,63,193,0.6));padding:32px 28px;display:flex;align-items:center;gap:20px}}
   .avatar{{width:72px;height:72px;border-radius:50%;border:3px solid #fff4;object-fit:cover}}
   .avatar-placeholder{{width:72px;height:72px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:2rem}}
   .user-info h1{{font-size:1.4rem;font-weight:700}}
   .user-info p{{opacity:.75;font-size:.95rem;margin-top:4px}}
   .badge-tag{{display:inline-block;background:#ffffff18;border-radius:8px;padding:2px 10px;font-size:.8rem;margin-top:6px}}
   .body{{padding:28px}}
-  .qa{{background:#1e1e35;border-radius:12px;padding:16px 18px;margin-bottom:14px;border-left:3px solid #7c3fc1}}
+  .qa{{background:rgba(30,30,53,0.45);backdrop-filter:blur(6px);border-radius:12px;padding:16px 18px;margin-bottom:14px;border-left:3px solid #7c3fc1}}
   .q{{font-weight:600;color:#b39ddb;font-size:.9rem;margin-bottom:8px}}
   .a{{color:#e0e0f0;line-height:1.6;font-size:.95rem;white-space:pre-wrap}}
   .actions{{display:flex;gap:14px;margin-top:24px;justify-content:center;flex-wrap:wrap}}
@@ -249,7 +250,7 @@ def ver_postulacion(token):
   .btn-accept:hover{{background:#3a9e5a}}
   .btn-reject{{background:#8b2020;color:#fff;border:none;padding:12px 36px;border-radius:10px;font-size:1rem;cursor:pointer;font-weight:600;transition:.2s}}
   .btn-reject:hover{{background:#b03030}}
-  .badge{{text-align:center;margin-top:24px;padding:14px;background:#1e1e35;border-radius:10px;font-weight:600;font-size:1rem;color:#b39ddb}}
+  .badge{{text-align:center;margin-top:24px;padding:14px;background:rgba(30,30,53,0.5);border-radius:10px;font-weight:600;font-size:1rem;color:#b39ddb}}
   .badge-aceptada{{background:#1a3d2b;color:#4caf50;border:2px solid #4caf50}}
   .badge-rechazada{{background:#3d1a1a;color:#f44336;border:2px solid #f44336}}
   .footer{{text-align:center;opacity:.4;font-size:.8rem;padding:16px 0 24px}}
@@ -431,10 +432,10 @@ async def accion_postulacion_web(token, accion):
                 emb = msg_orig.embeds[0]
                 if accion == "aceptar":
                     emb.color = discord.Color.green()
-                    new_desc = emb.description.replace("> 📋 **Estado:** `En Revision` 🔍", "> 📋 **Estado:** `Aceptado` ✅")
+                    new_desc = emb.description.replace("`En Revision`", "`Aceptado` ✅")
                 else:
                     emb.color = discord.Color.red()
-                    new_desc = emb.description.replace("> 📋 **Estado:** `En Revision` 🔍", "> 📋 **Estado:** `Rechazado` ❌")
+                    new_desc = emb.description.replace("`En Revision`", "`Rechazado` ❌")
                 emb = emb.copy()
                 emb.description = new_desc
                 view_disabled = discord.ui.View(timeout=None)
@@ -576,7 +577,7 @@ async def enviar_al_canal_revision_web(data):
             f"{arrow_e} **Discord:** @{discord_tag}\n"
             f"{arrow_e} **ID:** `{discord_id}`\n\n"
             f"Haz clic en **Ver Postulacion** para revisar todas las respuestas y decidir.\n\n"
-            f"> 📋 **Estado:** `En Revision` 🔍"
+            f"> {get_emoji(guild, EMOJI_MAPPING['libroembrujado']) or '📋'} **Estado:** `En Revision` {get_emoji(guild, EMOJI_MAPPING['lupa_chow']) or '🔍'}"
         ),
         color=discord.Color.purple(),
         timestamp=datetime.now()
