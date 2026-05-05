@@ -58,6 +58,7 @@ GUILD_ID = int(os.environ.get("GUILD_ID", "1500700653444665416"))
 
 postulaciones_web_pendientes = []
 postulaciones_enviadas = set()
+postulaciones_store = {}  # token -> data
 bot_loop = None  # Se asigna cuando el bot está listo
 estado_postulaciones = {"abierto": True}
 dm_mensajes_postulacion = {}
@@ -177,6 +178,113 @@ def recibir_postulacion():
         postulaciones_web_pendientes.append(data)
     return jsonify({"ok": True})
 
+@app_web.route('/ver/<token>')
+def ver_postulacion(token):
+    data = postulaciones_store.get(token)
+    if not data:
+        return "<h2 style='font-family:sans-serif;text-align:center;margin-top:80px'>Postulación no encontrada o expirada.</h2>", 404
+    preguntas = preguntas_data.get("preguntas", [])
+    avatar = data.get("avatar_url", "")
+    nombre = data.get("discord_name") or data.get("discord", "?")
+    tag    = data.get("discord", "?")
+    uid    = data.get("discord_id", "")
+    ya_procesada = data.get("_procesada", False)
+
+    filas = ""
+    for i, p in enumerate(preguntas):
+        resp = data.get(f"p{i+1}", "").strip() or "<em style='color:#888'>Sin respuesta</em>"
+        filas += f"""
+        <div class="qa">
+          <div class="q">P{i+1}. {p}</div>
+          <div class="a">{resp}</div>
+        </div>"""
+
+    botones = ""
+    if not ya_procesada:
+        botones = f"""
+        <div class="actions">
+          <form method="POST" action="/aceptar/{token}" onsubmit="return confirm('¿Aceptar a {nombre}?')">
+            <button class="btn-accept" type="submit">✅ Aceptar</button>
+          </form>
+          <form method="POST" action="/rechazar/{token}" onsubmit="return confirm('¿Rechazar a {nombre}?')">
+            <button class="btn-reject" type="submit">❌ Rechazar</button>
+          </form>
+        </div>"""
+    else:
+        estado = data.get("_estado", "Procesada")
+        botones = f'<div class="badge">✔ Postulación {estado}</div>'
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Postulación — {nombre}</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#0e0e1a;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  .card{{max-width:720px;margin:0 auto;background:#16162a;border-radius:18px;overflow:hidden;box-shadow:0 8px 40px #0008}}
+  .header{{background:linear-gradient(135deg,#5b2d8e,#7c3fc1);padding:32px 28px;display:flex;align-items:center;gap:20px}}
+  .avatar{{width:72px;height:72px;border-radius:50%;border:3px solid #fff4;object-fit:cover}}
+  .avatar-placeholder{{width:72px;height:72px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:2rem}}
+  .user-info h1{{font-size:1.4rem;font-weight:700}}
+  .user-info p{{opacity:.75;font-size:.95rem;margin-top:4px}}
+  .badge-tag{{display:inline-block;background:#ffffff18;border-radius:8px;padding:2px 10px;font-size:.8rem;margin-top:6px}}
+  .body{{padding:28px}}
+  .qa{{background:#1e1e35;border-radius:12px;padding:16px 18px;margin-bottom:14px;border-left:3px solid #7c3fc1}}
+  .q{{font-weight:600;color:#b39ddb;font-size:.9rem;margin-bottom:8px}}
+  .a{{color:#e0e0f0;line-height:1.6;font-size:.95rem;white-space:pre-wrap}}
+  .actions{{display:flex;gap:14px;margin-top:24px;justify-content:center;flex-wrap:wrap}}
+  .btn-accept{{background:#2d7d46;color:#fff;border:none;padding:12px 36px;border-radius:10px;font-size:1rem;cursor:pointer;font-weight:600;transition:.2s}}
+  .btn-accept:hover{{background:#3a9e5a}}
+  .btn-reject{{background:#8b2020;color:#fff;border:none;padding:12px 36px;border-radius:10px;font-size:1rem;cursor:pointer;font-weight:600;transition:.2s}}
+  .btn-reject:hover{{background:#b03030}}
+  .badge{{text-align:center;margin-top:24px;padding:14px;background:#1e1e35;border-radius:10px;font-weight:600;font-size:1rem;color:#b39ddb}}
+  .footer{{text-align:center;opacity:.4;font-size:.8rem;padding:16px 0 24px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    {'<img class="avatar" src="' + avatar + '">' if avatar else '<div class="avatar-placeholder">👤</div>'}
+    <div class="user-info">
+      <h1>{nombre}</h1>
+      <p><span class="badge-tag">@{tag}</span></p>
+      <p style="font-size:.8rem;margin-top:6px;opacity:.6">ID: {uid}</p>
+    </div>
+  </div>
+  <div class="body">
+    {filas}
+    {botones}
+  </div>
+  <div class="footer">Chowbox Network · Sistema de Postulaciones</div>
+</div>
+</body>
+</html>"""
+    return html
+
+@app_web.route('/aceptar/<token>', methods=['POST'])
+def aceptar_postulacion_web(token):
+    data = postulaciones_store.get(token)
+    if not data or data.get("_procesada"):
+        return redirect(f"/ver/{token}")
+    data["_procesada"] = True
+    data["_estado"] = "Aceptada"
+    if bot_loop and not bot_loop.is_closed():
+        asyncio.run_coroutine_threadsafe(accion_postulacion_web(token, "aceptar"), bot_loop)
+    return redirect(f"/ver/{token}")
+
+@app_web.route('/rechazar/<token>', methods=['POST'])
+def rechazar_postulacion_web(token):
+    data = postulaciones_store.get(token)
+    if not data or data.get("_procesada"):
+        return redirect(f"/ver/{token}")
+    data["_procesada"] = True
+    data["_estado"] = "Rechazada"
+    if bot_loop and not bot_loop.is_closed():
+        asyncio.run_coroutine_threadsafe(accion_postulacion_web(token, "rechazar"), bot_loop)
+    return redirect(f"/ver/{token}")
+
 def iniciar_servidor_web():
     port = int(os.environ.get('PORT', 5000))
     app_web.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
@@ -292,6 +400,94 @@ async def procesar_postulaciones_web():
                 print(traceback.format_exc())
         await asyncio.sleep(3)
 
+async def accion_postulacion_web(token, accion):
+    data = postulaciones_store.get(token)
+    if not data:
+        return
+    guild = bot.get_guild(GUILD_ID)
+    if not guild:
+        return
+    discord_id  = data.get("discord_id", "")
+    discord_tag = data.get("discord", "?")
+    discord_name = data.get("discord_name", discord_tag)
+
+    canal_res = guild.get_channel(config.get("canal_resultados_id") or 0)
+    usuario = None
+    if discord_id:
+        try:
+            usuario = guild.get_member(int(discord_id)) or await guild.fetch_member(int(discord_id))
+        except:
+            pass
+
+    if accion == "aceptar":
+        if canal_res:
+            nombre = usuario.mention if usuario else f"**{discord_name}**"
+            e = discord.Embed(
+                title=f"[INGRESO] {discord_name} fue admitido en el Staff de ChowBox",
+                description=(
+                    f"{nombre} fue admitido en el Staff de ChowBox\n\n"
+                    "Al igual que los demas postulantes y staff, esperamos que logre alcanzar sus metas, "
+                    "y demostrar lo mucho que vale dentro de ChowBox.\n\n"
+                    "> ➡ Recuerda que entrar al staff es solo el comienzo. Hay muchas etapas que aprobar una vez logres entrar.\n"
+                    "> ¡Mantenerse y crecer es lo dificil!\n\n"
+                    'Un dia un sabio dijo... \"*Las pequeñas cosas son las responsables de los **grandes cambios**\"'
+                ),
+                color=discord.Color.purple(),
+                timestamp=datetime.now()
+            )
+            e.set_image(url="https://cdn.discordapp.com/attachments/1145130881124667422/1501351358727454781/nuevostaff_chowbox.png?ex=69fbc1e9&is=69fa7069&hm=0ad9be7fb226defbe0de6bf3d9ab306c7878e25f94f69c58430a63b8d8e4d5c0")
+            await canal_res.send(embed=e)
+        if usuario:
+            try:
+                rol_staff = guild.get_role(ROL_NUEVO_STAFF_ID)
+                if rol_staff:
+                    await usuario.add_roles(rol_staff, reason="Postulacion aceptada desde web")
+            except Exception as ex:
+                print(f"[ROL] Error otorgando rol: {ex}")
+            try:
+                e_dm = discord.Embed(
+                    title="✅ ACTUALIZACION DE TU POSTULACION",
+                    description=(
+                        "¡Tu postulacion fue **aceptada**! ¡Bienvenido al equipo! 🎊\n\n"
+                        "📋 **Actualizacion del estado**\n"
+                        "> Estado actual: `Aceptado` ✅"
+                    ),
+                    color=discord.Color.green(),
+                    timestamp=datetime.now()
+                )
+                e_dm.set_footer(text="ChowBox Staff · Sistema de postulaciones")
+                await usuario.send(embed=e_dm)
+            except:
+                pass
+
+    elif accion == "rechazar":
+        if canal_res:
+            nombre = usuario.mention if usuario else f"**{discord_name}**"
+            e = discord.Embed(
+                title=f"[RECHAZO] {discord_name} no fue admitido en el Staff",
+                description=f"{nombre} no fue admitido en el Staff de ChowBox.",
+                color=discord.Color.red(),
+                timestamp=datetime.now()
+            )
+            e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1501351894264840292/rechazadochowbox.png?ex=69fbc269&is=69fa70e9&hm=c2935dc196f84586d38ddb3dd64f77e9ac502452ce47c0e1a4a270ca08998bbf&=&format=webp&quality=lossless&width=562&height=562")
+            await canal_res.send(embed=e)
+        if usuario:
+            try:
+                e_dm = discord.Embed(
+                    title="❌ ACTUALIZACION DE TU POSTULACION",
+                    description=(
+                        "Tu postulacion fue **rechazada**.\n\n"
+                        "📋 **Actualizacion del estado**\n"
+                        "> Estado actual: `Rechazado` ❌"
+                    ),
+                    color=discord.Color.red(),
+                    timestamp=datetime.now()
+                )
+                e_dm.set_footer(text="ChowBox Staff · Sistema de postulaciones")
+                await usuario.send(embed=e_dm)
+            except:
+                pass
+
 async def enviar_al_canal_revision_web(data):
     guild = bot.get_guild(GUILD_ID)
     if not guild:
@@ -320,36 +516,47 @@ async def enviar_al_canal_revision_web(data):
     discord_name = data.get('discord_name', discord_tag)
     discord_id   = data.get('discord_id', '')
 
+    # Guardar en store con token unico
+    token = secrets.token_urlsafe(16)
+    postulaciones_store[token] = data
+
     chowbox_e = get_emoji(guild, EMOJI_MAPPING['chowbox']) or '🌙'
     arrow_e   = get_emoji(guild, '1383arrowright') or '➡️'
-    preguntas = preguntas_data.get("preguntas", [])
 
+    # Obtener avatar del miembro si es posible
+    try:
+        miembro_tmp = guild.get_member(int(discord_id)) if discord_id else None
+        if not miembro_tmp and discord_id:
+            miembro_tmp = await guild.fetch_member(int(discord_id))
+        if miembro_tmp:
+            data["avatar_url"] = str(miembro_tmp.display_avatar.url)
+    except:
+        pass
+
+    url_ver = f"{WEB_URL}/ver/{token}"
     embed_main = discord.Embed(
+        title=f"{chowbox_e} Nueva Postulacion",
         description=(
-            f"{chowbox_e} **Postulacion De {discord_name}**\n"
-            f"{arrow_e} **Discord:** {discord_tag}\n"
-            f"{arrow_e} **ID:** `{discord_id}`"
+            f"{arrow_e} **Usuario:** {discord_name}\n"
+            f"{arrow_e} **Discord:** @{discord_tag}\n"
+            f"{arrow_e} **ID:** `{discord_id}`\n\n"
+            f"Haz clic en **Ver Postulacion** para revisar todas las respuestas y decidir."
         ),
         color=discord.Color.purple(),
         timestamp=datetime.now()
     )
     embed_main.set_footer(text="Enviado desde la pagina web · Verificado con Discord OAuth2")
+    if data.get("avatar_url"):
+        embed_main.set_thumbnail(url=data["avatar_url"])
 
-    CHUNK = 12
-    embeds_preguntas = []
-    for chunk_start in range(0, len(preguntas), CHUNK):
-        chunk = preguntas[chunk_start:chunk_start + CHUNK]
-        e = discord.Embed(color=discord.Color.purple())
-        for i, pregunta in enumerate(chunk):
-            idx = chunk_start + i
-            respuesta = data.get(f"p{idx+1}", "").strip() or "Sin respuesta"
-            e.add_field(name=f"{arrow_e} P{idx+1}: {pregunta[:100]}", value=f"> {respuesta[:1000]}", inline=False)
-        embeds_preguntas.append(e)
-
-    view = BotonesRevision(int(discord_id) if discord_id else 0, discord_tag)
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(
+        label="Ver Postulacion",
+        style=discord.ButtonStyle.link,
+        url=url_ver,
+        emoji="📋"
+    ))
     await canal_revision.send(embed=embed_main, view=view)
-    for e in embeds_preguntas:
-        await canal_revision.send(embed=e)
 
     if discord_id:
         try:
