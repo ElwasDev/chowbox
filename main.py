@@ -37,7 +37,8 @@ app_web.secret_key = os.environ.get("FLASK_SECRET", secrets.token_hex(32))
 
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-WEB_URL               = os.environ.get("WEB_URL", "http://localhost:5000").rstrip("/")
+_raw_web_url          = os.environ.get("WEB_URL", "http://localhost:5000").rstrip("/")
+WEB_URL               = _raw_web_url if _raw_web_url.startswith(("http://", "https://")) else f"https://{_raw_web_url}"
 print(f"DEBUG CLIENT_ID={DISCORD_CLIENT_ID!r}")
 print(f"DEBUG CLIENT_SECRET={DISCORD_CLIENT_SECRET[:4] if DISCORD_CLIENT_SECRET else 'VACIO'}...")
 
