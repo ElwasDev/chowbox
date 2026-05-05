@@ -21,6 +21,7 @@ EMOJI_MAPPING = {
     'chowbox_confirmado':   'chowbox_confirmado',
     'chowbox_mono':         'chowbox_mono',
     'minecraft':            'minecraft',
+    'flecha':               'flecha',
     'cohete_chowbox':       'cohete_chowbox',
 }
 
@@ -521,7 +522,7 @@ async def enviar_al_canal_revision_web(data):
     postulaciones_store[token] = data
 
     chowbox_e = get_emoji(guild, EMOJI_MAPPING['chowbox']) or '🌙'
-    arrow_e   = get_emoji(guild, '1383arrowright') or '➡️'
+    arrow_e   = get_emoji(guild, EMOJI_MAPPING['flecha']) or '➡️'
 
     # Obtener avatar del miembro si es posible
     try:
@@ -862,7 +863,7 @@ class ConfirmarPostulacion(discord.ui.View):
                 except: pass
         if canal_revision:
             chowbox_e  = get_emoji(interaction.guild, EMOJI_MAPPING['chowbox']) or '🌙'
-            arrow_e    = get_emoji(interaction.guild, '1383arrowright') or '➡️'
+            arrow_e    = get_emoji(interaction.guild, EMOJI_MAPPING['flecha']) or '➡️'
             preguntas_lista = preguntas_data["preguntas"]
             embed_main = discord.Embed(
                 description=(
