@@ -17,7 +17,7 @@ import threading
 
 EMOJI_MAPPING = {
     'chowbox':              'chowbox',
-    'chow_logo':            'chowbox_logo',
+    'chow_logo':            'chowbox_',
     'chowbox_confirmado':   'chowbox_confirmado',
     'chowbox_mono':         'chowbox_mono',
     'minecraft':            'minecraft',
