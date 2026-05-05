@@ -51,8 +51,8 @@ IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/14
 def get_redirect_uri():
     return f"{WEB_URL}/callback"
 
-ROL_STAFF_AUTORIZADO_ID = 1498403018993959154
-GUILD_ID = 1476355922883510293
+ROL_STAFF_AUTORIZADO_ID = int(os.environ.get("ROL_STAFF_AUTORIZADO_ID", "1498403018993959154"))
+GUILD_ID = int(os.environ.get("GUILD_ID", "1399211863228678194"))
 
 postulaciones_web_pendientes = []
 postulaciones_enviadas = set()
@@ -290,10 +290,12 @@ async def procesar_postulaciones_web():
         await asyncio.sleep(3)
 
 async def enviar_al_canal_revision_web(data):
+    print(f"[ENVIAR] Iniciando envio al canal de revision...")
     guild = bot.get_guild(GUILD_ID)
     if not guild:
-        print("No se encontro el servidor con ID", GUILD_ID)
+        print(f"[ENVIAR] ERROR: No se encontro el servidor con ID {GUILD_ID}")
         return
+    print(f"[ENVIAR] Guild encontrado: {guild.name}")
 
     canal_revision = None
     if config.get("canal_revision_id"):
@@ -303,6 +305,7 @@ async def enviar_al_canal_revision_web(data):
                 canal_revision = await bot.fetch_channel(config["canal_revision_id"])
             except Exception as e:
                 print(f"fetch_channel fallo: {e}")
+    print(f"[ENVIAR] canal_revision_id config={config.get('canal_revision_id')}, canal={canal_revision}")
     if not canal_revision:
         canal_revision = discord.utils.get(guild.text_channels, name="postulaciones-staff")
     if not canal_revision:
