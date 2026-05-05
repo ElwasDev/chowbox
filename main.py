@@ -56,6 +56,7 @@ GUILD_ID = 1476355922883510293
 
 postulaciones_web_pendientes = []
 postulaciones_enviadas = set()
+bot_loop = None  # Se asigna cuando el bot está listo
 estado_postulaciones = {"abierto": True}
 dm_mensajes_postulacion = {}
 
@@ -169,6 +170,9 @@ def recibir_postulacion():
     data["discord_name"] = user.get("global_name")
     postulaciones_enviadas.add(user.get("id"))
     postulaciones_web_pendientes.append(data)
+    # Notificar al bot inmediatamente si su loop está disponible
+    if bot_loop and not bot_loop.is_closed():
+        asyncio.run_coroutine_threadsafe(enviar_al_canal_revision_web(data), bot_loop)
     return jsonify({"ok": True})
 
 def iniciar_servidor_web():
@@ -773,6 +777,8 @@ async def rotar_status():
 
 @bot.event
 async def on_ready():
+    global bot_loop
+    bot_loop = asyncio.get_event_loop()
     print(f'Bot conectado como {bot.user}')
     print(f'Pagina web activa con OAuth2 Discord')
     try:
