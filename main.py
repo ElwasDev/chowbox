@@ -169,10 +169,10 @@ def recibir_postulacion():
     data["discord_id"]   = user.get("id")
     data["discord_name"] = user.get("global_name")
     postulaciones_enviadas.add(user.get("id"))
-    postulaciones_web_pendientes.append(data)
-    # Notificar al bot inmediatamente si su loop está disponible
     if bot_loop and not bot_loop.is_closed():
         asyncio.run_coroutine_threadsafe(enviar_al_canal_revision_web(data), bot_loop)
+    else:
+        postulaciones_web_pendientes.append(data)
     return jsonify({"ok": True})
 
 def iniciar_servidor_web():
@@ -276,12 +276,13 @@ def generar_html_postulacion(discord_tag, discord_name, discord_id, preguntas, r
 
 
 async def procesar_postulaciones_web():
+    # Loop de fallback - solo procesa si bot_loop no estaba listo cuando llego la postulacion
     await bot.wait_until_ready()
     while not bot.is_closed():
         if postulaciones_web_pendientes:
             data = postulaciones_web_pendientes.pop(0)
             try:
-                print(f"Procesando postulacion de {data.get('discord', '?')}")
+                print(f"[FALLBACK] Procesando postulacion pendiente de {data.get('discord', '?')}")
                 await enviar_al_canal_revision_web(data)
             except Exception as e:
                 import traceback
@@ -290,12 +291,10 @@ async def procesar_postulaciones_web():
         await asyncio.sleep(3)
 
 async def enviar_al_canal_revision_web(data):
-    print(f"[ENVIAR] Iniciando envio al canal de revision...")
     guild = bot.get_guild(GUILD_ID)
     if not guild:
         print(f"[ENVIAR] ERROR: No se encontro el servidor con ID {GUILD_ID}")
         return
-    print(f"[ENVIAR] Guild encontrado: {guild.name}")
 
     canal_revision = None
     if config.get("canal_revision_id"):
@@ -305,7 +304,6 @@ async def enviar_al_canal_revision_web(data):
                 canal_revision = await bot.fetch_channel(config["canal_revision_id"])
             except Exception as e:
                 print(f"fetch_channel fallo: {e}")
-    print(f"[ENVIAR] canal_revision_id config={config.get('canal_revision_id')}, canal={canal_revision}")
     if not canal_revision:
         canal_revision = discord.utils.get(guild.text_channels, name="postulaciones-staff")
     if not canal_revision:
