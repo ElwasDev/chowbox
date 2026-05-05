@@ -46,7 +46,7 @@ DISCORD_AUTH_URL  = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_USER_URL  = "https://discord.com/api/users/@me"
 
-IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/1498136147115638944/content.png?ex=69f00f83&is=69eebe03&hm=acc054030e4c0a24546045d4b8308de96abd1ffebedf7589b722518c13062619&=&format=webp&quality=lossless&width=661&height=562"
+IMG_PENDIENTE = "https://media.discordapp.net/attachments/1145130881124667422/1501350845281734787/pendientechowbox.png?ex=69fbc16f&is=69fa6fef&hm=51bef5b6cdf5aaada3efad8972f30485165de90af8a10f8b0be0ce991a8a4887&=&format=webp&quality=lossless&width=562&height=562"
 
 def get_redirect_uri():
     return f"{WEB_URL}/callback"
@@ -545,7 +545,7 @@ class BotonesRevision(discord.ui.View):
                 color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
-            e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1498136175339245588/content.png?ex=69f00f8a&is=69eebe0a&hm=6df4bd118fc527956c31c0977939d3d1abdd854ba3708fcedeeab851a1495b86&=&format=webp&quality=lossless&width=393&height=315")
+            e.set_image(url="https://cdn.discordapp.com/attachments/1145130881124667422/1501351358727454781/nuevostaff_chowbox.png?ex=69fbc1e9&is=69fa7069&hm=0ad9be7fb226defbe0de6bf3d9ab306c7878e25f94f69c58430a63b8d8e4d5c0")
             await canal_res.send(embed=e)
         if usuario:
             try:
@@ -595,7 +595,7 @@ class BotonesRevision(discord.ui.View):
                 color=discord.Color.purple(),
                 timestamp=datetime.now()
             )
-            e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1498136189763588106/content.png?ex=69f00f8d&is=69eebe0d&hm=426f24866be5b9ded8ee44c20590a3a5cf6e939cdcc71fb7c947142b3935eb73&=&format=webp&quality=lossless&width=393&height=315")
+            e.set_image(url="https://media.discordapp.net/attachments/1145130881124667422/1501351894264840292/rechazadochowbox.png?ex=69fbc269&is=69fa70e9&hm=c2935dc196f84586d38ddb3dd64f77e9ac502452ce47c0e1a4a270ca08998bbf&=&format=webp&quality=lossless&width=562&height=562")
             await canal_res.send(embed=e)
         if usuario:
             try:
