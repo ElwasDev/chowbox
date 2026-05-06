@@ -24,6 +24,7 @@ EMOJI_MAPPING = {
     'flecha':               'flecha',
     'libroembrujado':       'libroembrujado',
     'lupa_chow':            'lupa_chow',
+    'chow_rechazado':       'chow_rechazado',
     'cohete_chowbox':       'cohete_chowbox',
 }
 
@@ -228,14 +229,14 @@ def ver_postulacion(token):
 <title>Postulación — {nombre}</title>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501371968409305170/1e640360d6f43b5c37d8d77c1f20287d.png?ex=69fbd51b&is=69fa839b&hm=972c21a597f7e714fbfb5eb5066be2d2e020fa8f1ee6b355a784916d97101712&=&format=webp&quality=lossless&width=661&height=220') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501373612882661436/3dee5ea6f4275900d93ee78da0cf0efa.png?ex=69fbd6a3&is=69fa8523&hm=117e1055c9ea0ac740be38252ef378699137bc7574d7cf60dfc8164e48bb3c38&=&format=webp&quality=lossless&width=662&height=373') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
   body::before{{content:'';position:fixed;inset:0;background:#0008;z-index:0}}
   .card{{position:relative;z-index:1}}
   .logo-container{{text-align:center;margin-bottom:24px;position:relative;z-index:1}}
   .logo{{width:120px;height:120px;object-fit:contain;border-radius:50%;animation:pulse 2s ease-in-out infinite;filter:drop-shadow(0 0 16px #7c3fc1)}}
   @keyframes pulse{{0%,100%{{transform:scale(1);filter:drop-shadow(0 0 16px #7c3fc1)}}50%{{transform:scale(1.08);filter:drop-shadow(0 0 28px #b36ef0)}}}}
-  .card{{max-width:720px;margin:0 auto;background:rgba(22,22,42,0.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:18px;overflow:hidden;box-shadow:0 8px 40px #0008;border:1px solid rgba(124,63,193,0.3)}}
-  .header{{background:linear-gradient(135deg,rgba(91,45,142,0.6),rgba(124,63,193,0.6));padding:32px 28px;display:flex;align-items:center;gap:20px}}
+  .card{{max-width:720px;margin:0 auto;background:transparent;border-radius:18px;overflow:hidden}}
+  .header{{background:transparent;padding:32px 28px;display:flex;align-items:center;gap:20px}}
   .avatar{{width:72px;height:72px;border-radius:50%;border:3px solid #fff4;object-fit:cover}}
   .avatar-placeholder{{width:72px;height:72px;border-radius:50%;background:#ffffff22;display:flex;align-items:center;justify-content:center;font-size:2rem}}
   .user-info h1{{font-size:1.4rem;font-weight:700}}
@@ -432,10 +433,10 @@ async def accion_postulacion_web(token, accion):
                 emb = msg_orig.embeds[0]
                 if accion == "aceptar":
                     emb.color = discord.Color.green()
-                    new_desc = emb.description.replace("`En Revision`", "`Aceptado` ✅")
+                    new_desc = emb.description.replace("`En Revision`", f"`Aceptado` {get_emoji(guild, EMOJI_MAPPING['chowbox_confirmado']) or '✅'}")
                 else:
                     emb.color = discord.Color.red()
-                    new_desc = emb.description.replace("`En Revision`", "`Rechazado` ❌")
+                    new_desc = emb.description.replace("`En Revision`", f"`Rechazado` {get_emoji(guild, EMOJI_MAPPING['chow_rechazado']) or '❌'}")
                 emb = emb.copy()
                 emb.description = new_desc
                 view_disabled = discord.ui.View(timeout=None)
