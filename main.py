@@ -1058,7 +1058,7 @@ async def on_member_join(member):
     embed = discord.Embed(
         title=f"Bienvenido(a) a Chowbox Network",
         description=(
-            f"¡Hola {member.mention} bienvenido(a) a DiosesMC Postulaciones! ⚡\n\n"
+            f"¡Hola {member.mention} bienvenido(a) a Chowbox! ⚡\n\n"
             f"» Recuerda leer cómo postularte para entrenarte antes de postularte. "
             f"También será muy útil que revises el canal <#1500701909672005813>.\n\n"
             f"# ENLACES ÚTILES\n"
@@ -1106,7 +1106,7 @@ async def setup_postulaciones(interaction: discord.Interaction):
             "¿Estas interesado en ser parte del Staff-Team?\n"
             "Si es asi, no esperes mas. Esta es tu oportunidad. Postulate dando clic en el boton de abajo.\n\n"
             "# Requisitos a cumplir:\n"
-            f"{chowbox_confirmado}: Tener minimo 14 Anos.\n"
+            f"{chowbox_confirmado}: Tener minimo 14 Años.\n"
             f"{chowbox_confirmado}: Ser premium.\n"
             f"{chowbox_confirmado}: Historial limpio en el servidor.\n"
             f"{chowbox_confirmado}: No ser staff en otro servidor.\n"
