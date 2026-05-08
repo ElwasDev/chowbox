@@ -39,6 +39,10 @@ def get_emoji(guild, name):
 app_web = Flask(__name__, static_folder='web')
 app_web.secret_key = os.environ.get("FLASK_SECRET", secrets.token_hex(32))
 
+@app_web.route('/images/<path:filename>')
+def serve_images(filename):
+    return send_from_directory('images', filename)
+
 DISCORD_CLIENT_ID     = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 _raw_web_url          = os.environ.get("WEB_URL", "http://localhost:5000").rstrip("/")
@@ -229,7 +233,7 @@ def ver_postulacion(token):
 <title>Postulación — {nombre}</title>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
-  body{{background:url('https://media.discordapp.net/attachments/1145130881124667422/1501373612882661436/3dee5ea6f4275900d93ee78da0cf0efa.png?ex=69fbd6a3&is=69fa8523&hm=117e1055c9ea0ac740be38252ef378699137bc7574d7cf60dfc8164e48bb3c38&=&format=webp&quality=lossless&width=662&height=373') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
+  body{{background:url('/images/backround.jpg') center center / cover fixed;color:#e0e0f0;font-family:'Segoe UI',sans-serif;min-height:100vh;padding:32px 16px}}
   body::before{{content:'';position:fixed;inset:0;background:#0008;z-index:0}}
   .card{{position:relative;z-index:1}}
   .logo-container{{text-align:center;margin-bottom:24px;position:relative;z-index:1}}
@@ -259,7 +263,7 @@ def ver_postulacion(token):
 </head>
 <body>
 <div class="logo-container">
-  <img class="logo" src="https://media.discordapp.net/attachments/1145130881124667422/1501370540819091557/postulciones_chowbox.png?ex=69fbd3c7&is=69fa8247&hm=3bffe0684e727214c5b895008f728e8480e470dc9e74b023831b22c3f068e74d&=&format=webp&quality=lossless&width=562&height=562" alt="Chowbox">
+  <img class="logo" src="/images/chowbox.png" alt="Chowbox">
 </div>
 <div class="card">
   <div class="header">
